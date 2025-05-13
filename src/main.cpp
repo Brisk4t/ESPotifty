@@ -11,7 +11,7 @@
 Spotify spotify(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, 8080);
 
 //AsyncWebServer server(80);
-//NeoPixelImage npimage(1, 1);
+NeoPixelImage npimage(1, 1);
 
 
 // const char index_html[] PROGMEM = R"rawliteral(
@@ -126,14 +126,22 @@ void setup(){
   Serial.println("Initializing WiFi...");
   pinMode(LED_BUILTIN, OUTPUT); // Initialize the LED_BUILTIN pin as an output
 
+  // Serial.println("Initializing RGB Matrix...");
+  // matrix.begin(); // Initialize the LED matrix
+  // matrix.setBrightness(50); // Set brightness to 50% 
+  // matrix.fillScreen(CRGB::Blue); // Clear the matrix
+  // matrix.show(); // Show the initial color
+  // delay(1000); // Wait for 1 second
+  // matrix.clear(); // Clear the matrix
+
+  npimage.begin(); // Initialize the NeoPixelImage class
+
   connectToWifi(); // Connect to Wi-Fi network with SSID and password
   
   spotify.begin(); // Initialize Spotify API on ESP32 webserver
   waitForSpotifyAuth();
 
 
-  
-  //spotify.end();
 
   //sendImageSerial("/current_cover.jpg"); // Send the image data to Serial for debugging
 
@@ -174,11 +182,8 @@ void loop()
 
   spotify.save_current_album_image(cover_url, "/current_cover.jpg");
 
-  if(!saveToSPIFFS("/current_cover.jpg", image_data, sizeof(image_data))){
-    Serial.println("Failed to save image data to SPIFFS");
-  } 
-
-  //npimage.drawImage("/current_cover.jpg"); // Draw the image on the LED matrix
+  Serial.println("Drawiing image from SPIFFS...");
+  npimage.drawImage("/current_cover.jpg"); // Draw the image on the LED matrix
 
   delay(10000);
 }

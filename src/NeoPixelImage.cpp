@@ -1,54 +1,68 @@
 #include <NeoPixelImage.h>
 
 
-#define LED_PIN     5
-#define NUM_LEDS    256
-#define MATRIX_WIDTH 16
-#define MATRIX_HEIGHT 16
 
-static CRGB imageBuffer[MATRIX_HEIGHT][MATRIX_WIDTH]; // Buffer to hold the image data
 
-bool drawImageCallback(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap){
-    
+CRGB leds[NUM_LEDS];
+FastLED_NeoMatrix matrix(leds, 
+    MATRIX_WIDTH, MATRIX_HEIGHT, 
+    NEO_MATRIX_TOP     + NEO_MATRIX_LEFT +
+    NEO_MATRIX_ROWS + NEO_MATRIX_ZIGZAG);
 
-    // uint16_t width;
-    // uint16_t height;
 
-    //TJpgDec.getFsJpgSize(&width, &height, filename); // Get the size of the image
-    
-    // Callback for TJpg_Decoder
-    for (int16_t j = 0; j < h; j++) {
-        for (int16_t i = 0; i < w; i++) {
-          int src_x = x + i;
-          int src_y = y + j;
-    
-          // Map source to 16x16 target
-          int target_x = map(src_x, 0, w - 1, 0, MATRIX_WIDTH - 1);
-          int target_y = map(src_y, 0, h - 1, 0, MATRIX_HEIGHT - 1);
-    
-          // Set pixel in buffer
-          uint16_t color = bitmap[j * w + i];
-          uint8_t r = ((color >> 11) & 0x1F) << 3;
-          uint8_t g = ((color >> 5) & 0x3F) << 2;
-          uint8_t b = (color & 0x1F) << 3;
-    
-          imageBuffer[target_y][target_x] = CRGB(r, g, b);
+// Function to downsample the bitmap to fit a 16x16 matrix
+void downsampleBitmap(uint16_t *inputBitmap, uint16_t inputWidth, uint16_t inputHeight, uint16_t *outputBitmap, uint16_t outputWidth, uint16_t outputHeight) {
+    for (uint16_t y = 0; y < outputHeight; y++) {
+        for (uint16_t x = 0; x < outputWidth; x++) {
+            // Calculate the corresponding coordinates in the original bitmap
+            uint16_t origX = x * inputWidth / outputWidth;
+            uint16_t origY = y * inputHeight / outputHeight;
+
+            // Get the color of the pixel from the original bitmap
+            uint16_t color = inputBitmap[origY * inputWidth + origX];
+
+            // Assign this color to the downsampled bitmap
+            outputBitmap[y * outputWidth + x] = color;
         }
-      }
-
-    return true; // Return true to continue drawing
+    }
 }
-    
+
+
+bool display_rgbBitmap(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t *bitmap) { 
+    matrix.clear(); // Clear the matrix before drawing
+
+    uint16_t downsampledBitmap[16 * 16];  // Create a downsampled bitmap (16x16)
+    downsampleBitmap(bitmap, w, h, downsampledBitmap, 16, 16);  // Downsample to 16x16
+
+    matrix.drawRGBBitmap(x, y, downsampledBitmap, 16, 16);
+    matrix.show();
+    return true;
+}
+
+
 NeoPixelImage::NeoPixelImage(int scale, bool setSwapBytes){
+    this->scale = scale; // Set the scale factor for the image
+    this->setSwapBytes = setSwapBytes; // Set the swap bytes flag
+}
+
+void NeoPixelImage::begin(){
+
+        Serial.println("Initializing JPEG decoder....."); // Debugging line
         TJpgDec.setJpgScale(scale);
         TJpgDec.setSwapBytes(setSwapBytes);
-        TJpgDec.setCallback(drawImageCallback); // Set the callback function for image drawing
 
+        Serial.println("Setting Callback Function....."); // Debugging line
+        TJpgDec.setCallback(display_rgbBitmap); // Set the callback function for image drawing
 
+        Serial.println("Initializing FastLed....."); // Debugging line
         FastLED.addLeds<NEOPIXEL, LED_PIN>(leds, NUM_LEDS);
-        FastLED.clear();
-        // FastLED.show();
-    }
+
+        matrix.begin();
+        matrix.setBrightness(5); // Set brightness to 50%
+        uint16_t color = matrix.Color(255, 0, 0);
+        matrix.fillScreen(color); // Clear the matrix
+        matrix.show();
+}
 
 int NeoPixelImage::XY(int x, int y) { // Convert 2D coordinates to 1D index for chain-indexed matrix 
     if (y % 2 == 0) {
@@ -61,20 +75,14 @@ int NeoPixelImage::XY(int x, int y) { // Convert 2D coordinates to 1D index for 
     }
     
 
-bool NeoPixelImage::drawImage(const char* path) {
+bool NeoPixelImage::drawImage(String path) {
         // Load the image from the file system and draw it
 
-        filename = path; // Set the filename to be used in the callback function
-
-        // Clear the image buffer before drawing
-        for (uint8_t y = 0; y < MATRIX_HEIGHT; y++) {
-            for (uint8_t x = 0; x < MATRIX_WIDTH; x++) {
-              imageBuffer[y][x] = CRGB::Black;
-            }
-        }
-
+        String filename = path; // Set the filename to be used in the callback function
+        
+        Serial.println("Drawing buffer.... " + String(filename)); // Debugging line
         // Draw buffer to the LED matrix  
-        if (TJpgDec.drawFsJpg(0, 0, filename) == 0) {
+        if (TJpgDec.drawFsJpg(0, 0, "/current_cover.jpg")) {
             Serial.println("Image drawn successfully");
         } 
         
@@ -83,14 +91,6 @@ bool NeoPixelImage::drawImage(const char* path) {
             return false;
         }
 
-        // Transfer buffer to LED matrix
-        for (uint8_t y = 0; y < MATRIX_HEIGHT; y++) {
-            for (uint8_t x = 0; x < MATRIX_WIDTH; x++) {
-            leds[XY(x, y)] = imageBuffer[y][x];
-            }
-        }
 
-        FastLED.show(); // Update the LED matrix with the new image
         return true;
 }
-
