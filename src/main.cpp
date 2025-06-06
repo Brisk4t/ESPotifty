@@ -88,27 +88,8 @@ bool saveToSPIFFS(const String& filename, const uint8_t* data, size_t length) {
     return false;
   }
 
-  Serial.println("CDN resource saved to " + filename);
+  Serial.println("Data saved to " + filename);
   return true;
-}
-
-void sendImageSerial(const String& imagePath) {
-  File file = SPIFFS.open(imagePath, "r");
-  if (!file) {
-    Serial.println("Failed to open file for reading");
-    return;
-  }
-
-  Serial.write("===BEGIN_IMAGE===\n");  // Start marker
-
-  while (file.available()) {
-    Serial.write(file.read());
-  }
-
-  Serial.write("\n===END_IMAGE===\n");  // End marker
-  file.close();
-
-  
 }
 
 void setup(){
@@ -125,14 +106,6 @@ void setup(){
   // Connect to Wi-Fi
   Serial.println("Initializing WiFi...");
   pinMode(LED_BUILTIN, OUTPUT); // Initialize the LED_BUILTIN pin as an output
-
-  // Serial.println("Initializing RGB Matrix...");
-  // matrix.begin(); // Initialize the LED matrix
-  // matrix.setBrightness(50); // Set brightness to 50% 
-  // matrix.fillScreen(CRGB::Blue); // Clear the matrix
-  // matrix.show(); // Show the initial color
-  // delay(1000); // Wait for 1 second
-  // matrix.clear(); // Clear the matrix
 
   npimage.begin(); // Initialize the NeoPixelImage class
 
@@ -169,6 +142,7 @@ void setup(){
 
 
   digitalWrite(LED_BUILTIN, HIGH); // Solid led for setup complete
+
 }
 
 void loop()
@@ -182,7 +156,7 @@ void loop()
 
   spotify.save_current_album_image(cover_url, "/current_cover.jpg");
 
-  Serial.println("Drawiing image from SPIFFS...");
+  Serial.println("Drawing image from SPIFFS...");
   npimage.drawImage("/current_cover.jpg"); // Draw the image on the LED matrix
 
   delay(10000);
